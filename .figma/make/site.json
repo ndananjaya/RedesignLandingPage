@@ -1,0 +1,10 @@
+{
+  "description": "Salon Cutz offers a sleek online platform for booking salon services, showcasing stylists, and managing appointments, tailored for beauty enthusiasts.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
