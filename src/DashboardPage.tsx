@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 import { directoryTitles, salonImages, salons } from "./SalonsPage"
 import { products } from "./ProductsPage"
 import type { AuthUser } from "./LoginPage"
@@ -43,6 +43,7 @@ const icons: Record<string, string> = {
   check: "m5 12 5 5 9-10",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2",
   pin: "M12 22s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12ZM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
+  bell: "M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0",
 }
 
 function Ico({ name, size = 18 }: { name: string; size?: number }) {
@@ -135,12 +136,37 @@ function Empty({
 
 const tabs: { id: TabId; label: string }[] = [
   { id: "activities", label: "Activities" },
-  { id: "reviews", label: "My Reviews" },
-  { id: "profile", label: "Profile" },
-  { id: "appointments", label: "My Appointments" },
   { id: "favorites", label: "My Favorite" },
+  { id: "appointments", label: "My Appointments" },
+  { id: "reviews", label: "My Reviews" },
   { id: "cart", label: "My Cart" },
+  { id: "profile", label: "Profile" },
 ]
+
+type NotificationItem = {
+  id: string
+  title: string
+  detail: string
+  time: string
+  unread: boolean
+  targetTab?: TabId
+}
+
+function formatDateAndTime(now: Date) {
+  const datePart = now.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+  const hours24 = now.getHours()
+  const ampm = hours24 >= 12 ? "PM" : "AM"
+  const hours12 = hours24 % 12 || 12
+  const hh = String(hours12).padStart(2, "0")
+  const mm = String(now.getMinutes()).padStart(2, "0")
+  const ss = String(now.getSeconds()).padStart(2, "0")
+  return `${datePart} · ${hh}:${mm}:${ss} ${ampm}`
+}
 
 export default function DashboardPage({
   user,
@@ -178,6 +204,53 @@ export default function DashboardPage({
   const [draft, setDraft] = useState({ rating: 5, text: "" })
   const [writing, setWriting] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [now, setNow] = useState(() => new Date())
+  const [notifOpen, setNotifOpen] = useState(false)
+  const notifRef = useRef<HTMLDivElement>(null)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([
+    {
+      id: "n1",
+      title: "Appointment Confirmed",
+      detail: "Your Haircut & styling visit at Colombo Style Salon on 22 Oct 2026 at 10:30 AM is confirmed.",
+      time: "10 mins ago",
+      unread: true,
+      targetTab: "appointments",
+    },
+    {
+      id: "n2",
+      title: "Salon Product Back in Stock",
+      detail: "Sunslik Shampoo (250 ml) is available for order at Colombo Style Salon.",
+      time: "2 hours ago",
+      unread: true,
+      targetTab: "cart",
+    },
+    {
+      id: "n3",
+      title: "Share Your Experience",
+      detail: "How was your Haircut at Kandy Style Salon? Leave a quick rating.",
+      time: "Yesterday",
+      unread: false,
+      targetTab: "reviews",
+    },
+  ])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!notifOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setNotifOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [notifOpen])
 
   const log = (kind: string, text: string) =>
     setActivity((a) => [{ id: `${Date.now()}`, kind, text, when: "Just now" }, ...a])
@@ -263,6 +336,9 @@ export default function DashboardPage({
   }
 
   const suggestions = products.filter((p) => !cart.some((i) => i.name === p.name.trim())).slice(0, 4)
+  const unreadCount = notifications.filter((n) => n.unread).length
+  const markAllRead = () =>
+    setNotifications((list) => list.map((item) => ({ ...item, unread: false })))
 
   return (
     <main className="products-main dash" id="dashboard-content" tabIndex={-1}>
@@ -275,19 +351,74 @@ export default function DashboardPage({
       <section className="dash-hero">
         <div className="dash-avatar" aria-hidden="true">{user.name.slice(0, 1).toUpperCase()}</div>
         <div className="dash-hero-text">
-          <span className="products-eyebrow">
-            {user.role === "partner" ? "SALON PARTNER" : "CLIENT ACCOUNT"} · {(user.district ?? "Sri Lanka").toUpperCase()}
-          </span>
           <h1>
             Ayubowan, <span>{first}.</span>
           </h1>
-          <p>
-            {next
-              ? `Your next visit is ${fmt(next.date)} at ${salonName(next.salonId)}.`
-              : "No visits booked yet. Find a salon that gets your style."}
+          <p className="dash-datetime" aria-live="off">
+            {formatDateAndTime(now)}
           </p>
         </div>
         <div className="dash-hero-actions">
+          <div className="dash-notif-wrap" ref={notifRef}>
+            <button
+              type="button"
+              className="dash-notif-button"
+              onClick={() => setNotifOpen((prev) => !prev)}
+              aria-expanded={notifOpen}
+              aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+            >
+              <Ico name="bell" size={18} />
+              <span>Notifications</span>
+              {unreadCount > 0 && (
+                <span className="dash-notif-badge">{unreadCount}</span>
+              )}
+            </button>
+
+            {notifOpen && (
+              <div className="dash-notif-popover" role="region" aria-label="Recent updates">
+                <div className="dash-notif-header">
+                  <strong>Updates &amp; Notifications</strong>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      className="dash-notif-mark"
+                      onClick={markAllRead}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                <ul className="dash-notif-list">
+                  {notifications.map((item) => (
+                    <li
+                      key={item.id}
+                      className={item.unread ? "is-unread" : ""}
+                    >
+                      <button
+                        type="button"
+                        className="dash-notif-item"
+                        onClick={() => {
+                          setNotifications((list) =>
+                            list.map((n) =>
+                              n.id === item.id ? { ...n, unread: false } : n,
+                            ),
+                          )
+                          if (item.targetTab) setTab(item.targetTab)
+                          setNotifOpen(false)
+                        }}
+                      >
+                        <div className="dash-notif-item-top">
+                          <strong>{item.title}</strong>
+                          <time>{item.time}</time>
+                        </div>
+                        <p>{item.detail}</p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
           <a href="#salons" className="primary-button">Book an appointment</a>
         </div>
       </section>

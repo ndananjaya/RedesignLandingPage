@@ -6,6 +6,7 @@ import ScanPage from "./ScanPage"
 import LoginPage, { type AuthUser } from "./LoginPage"
 import RegisterPage from "./RegisterPage"
 import DashboardPage from "./DashboardPage"
+import AdminDashboardPage from "./AdminDashboardPage"
 
 function currentPage() {
   const hash = window.location.hash
@@ -327,15 +328,7 @@ export default function App() {
         </div>
       </header>
       {page === "products" ? (
-        <ProductsPage
-          onPreview={(name) =>
-            setPreview({
-              title: name,
-              icon: "products",
-              description: `${name} is part of this catalog preview. Product images, specifications, prices, and availability have not been added yet. Shopping and checkout are not available in this preview.`,
-            })
-          }
-        />
+        <ProductsPage />
       ) : page.startsWith("salons") ? (
         <SalonsPage
           detailId={page.startsWith("salons/") ? page.slice(7) : undefined}
@@ -347,12 +340,16 @@ export default function App() {
       ) : page === "favorites" ? (
         <FavoritesPage favorites={favorites} onRemove={toggleFavorite} />
       ) : page === "dashboard" ? (
-        <DashboardPage
-          user={authUser}
-          favorites={favorites}
-          onRemoveFavorite={toggleFavorite}
-          onUpdateUser={setAuthUser}
-        />
+        authUser?.role === "admin" ? (
+          <AdminDashboardPage user={authUser} />
+        ) : (
+          <DashboardPage
+            user={authUser}
+            favorites={favorites}
+            onRemoveFavorite={toggleFavorite}
+            onUpdateUser={setAuthUser}
+          />
+        )
       ) : page === "login" ? (
         <LoginPage
           user={authUser}

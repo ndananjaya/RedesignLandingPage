@@ -7,7 +7,7 @@ export type AuthUser = {
   email: string
   telephone?: string
   address?: string
-  role: "client" | "partner"
+  role: "client" | "partner" | "admin"
   district?: string
   town?: string
   gender?: string
@@ -46,6 +46,7 @@ export default function LoginPage({
       )
       return
     }
+    const isTestUser = trimmed.toLowerCase() === "karish@gmail.com"
     const isTestAdmin = trimmed.toLowerCase() === "admin@gmail.com"
     if (isTestAdmin) {
       if (password !== "12345") {
@@ -57,10 +58,29 @@ export default function LoginPage({
       window.setTimeout(() => {
         onLogin({
           name: "Admin",
+          firstName: "Admin",
           email: "admin@gmail.com",
-          role: "partner",
+          role: "admin",
           district: "Colombo",
-          salonName: "Ceylon Cutz Administration",
+        })
+        setSubmitting(false)
+      }, 280)
+      return
+    }
+    if (isTestUser) {
+      if (password !== "12345") {
+        setError("Invalid password for karish@gmail.com. Use 12345 for testing.")
+        return
+      }
+      setError("")
+      setSubmitting(true)
+      window.setTimeout(() => {
+        onLogin({
+          name: "Karish",
+          firstName: "Karish",
+          email: "karish@gmail.com",
+          role: "client",
+          district: "Colombo",
         })
         setSubmitting(false)
       }, 280)
@@ -334,7 +354,7 @@ export default function LoginPage({
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tharindurangana@gmail.com"
+                    placeholder="karish@gmail.com"
                     autoComplete="email"
                     required
                   />
